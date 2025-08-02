@@ -5,7 +5,7 @@ import random
 import google.generativeai as genai
 from PIL import Image
 
-GOOGLE_API_KEY = "AIzaSyDWPiQeiGLlrNLNM6eumED5uivjLMhIm5I"
+GOOGLE_API_KEY = "AIzaSyCuFvn3mq0MB5my4quqMHR0gmUBD-bG1sE"
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
@@ -77,4 +77,5 @@ def suggest_partner_name(image_data: bytes) -> str:
         [prompt, person_image],
         generation_config=generation_config
     )
+
     return response.text
