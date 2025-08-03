@@ -2,14 +2,15 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   
+    // --- CHANGE 1: Define the backend URL as a constant ---
+    const BACKEND_URL = "https://nameai-useless-projects-2-0.onrender.com";
+
     let currentMode = ''; 
     let videoStream = null;
     let imageDataUrl = null;
 
-  
     const appContainer = document.querySelector('.app-container');
 
-  
     const startCamera = async (videoEl) => {
         try {
             if (videoStream) videoStream.getTracks().forEach(track => track.stop());
@@ -27,7 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderScreen('loading');
         const modeForApi = (currentMode === 'father') ? 'self' : currentMode;
         try {
-            const response = await fetch('/generate_name', {
+            // --- CHANGE 2: Use the full backend URL for the fetch request ---
+            const response = await fetch(`${BACKEND_URL}/generate_name`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: imageDataUrl, mode: modeForApi, context: currentMode }),
@@ -45,10 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
    
     const renderScreen = (screenName, data = {}) => {
-     
         appContainer.innerHTML = '';
 
-       
         if (screenName !== 'camera' && videoStream) {
             videoStream.getTracks().forEach(track => track.stop());
             videoStream = null;
@@ -65,16 +65,13 @@ document.addEventListener('DOMContentLoaded', () => {
             newScreen = createRevealScreen(data.name, data.reason);
         }
         
-        
         if (newScreen) {
-           
             newScreen.classList.add('hidden');
             appContainer.appendChild(newScreen);
             setTimeout(() => newScreen.classList.remove('hidden'), 50);
         }
     };
 
-  
     const createHomeScreen = () => {
         const screen = document.createElement('div');
         screen.className = 'screen';
